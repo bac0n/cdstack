@@ -1,0 +1,91 @@
+# cd(1) completion                                         -*- shell-script -*-
+
+# This meta-cd function observes the CDPATH variable, so that `cd`
+# additionally completes on directories under those specified in CDPATH.
+_comp_cmd_cd()
+{
+    local cur prev words cword comp_args
+    _comp_initialize -- "$@" || return
+
+    if [[ $cur == -* ]]; then
+        _comp_compgen_help -c help "$1"
+        compopt +o nospace
+        return
+    fi
+
+    local i j k
+
+    compopt -o filenames
+
+    #### start #####
+
+    # Expand dots to dot-dot component.
+    local -a o=() e=() d=()
+    local -- x
+    __copt__ o e d "${COMP_WORDS[@]:1}" &> /dev/null || return 1
+    if [[ -v __last__ && $e = _ && $e = "$cur" ]]; then
+        [[ -d $__last__ ]] && cur=$__last__ || { \
+        [[ -f $__last__ ]] && __dirname__ cur "$__last__" || return 1; }
+    elif [[ $e = ++([1-9]) && $e = "$cur" ]]; then
+        eval printf -v cur ../%.0s \{1..$e}\}
+    elif [[ $e = @*([[:alnum:]_+:.-]) && $e = "$cur" ]]; then
+        __cdstack__ cur "$e" || return 1
+    else
+        while [[ ${o[@]:(-1)} != -- ]] && [[ ${cur:${#x}} =~ (^|/)([.]{3,})(/.*)?$ ]]; do
+            if [[ -n $(compgen -d -- "$cur") ]]; then
+                if [[ $cur == ..+(.) ]] || [[ $cur == */..+(.) ]]; then
+                    COMPREPLY+=("$cur/")
+                fi
+                break
+            fi
+            x="${cur:0:(${#cur}-${#BASH_REMATCH[3]})}"
+            y='..'
+            for ((z=3; z <= ${#BASH_REMATCH[2]}; z++)); do
+                y+='/..'
+            done
+            cur="${cur:0:(${#cur}-${#BASH_REMATCH[0]})}${BASH_REMATCH[1]}${y}${BASH_REMATCH[3]}"
+        done
+    fi
+
+    #### END ####
+
+    # Use standard dir completion if no CDPATH or parameter starts with /,
+    # ./ or ../
+    if [[ ! ${CDPATH-} || $cur == ?(.)?(.)/* ]]; then
+        _comp_compgen_filedir -d
+        return
+    fi
+
+    local mark_dirs="" mark_symdirs=""
+    _comp_readline_variable_on mark-directories && mark_dirs=set
+    _comp_readline_variable_on mark-symlinked-directories && mark_symdirs=set
+
+    # we have a CDPATH, so loop on its contents
+    local paths dirs
+    _comp_split -F : paths "$CDPATH"
+    for i in "${paths[@]}"; do
+        # create an array of matched subdirs
+        k=${#COMPREPLY[@]}
+        _comp_compgen -v dirs -c "$i/$cur" -- -d
+        for j in "${dirs[@]}"; do
+            if [[ ($mark_symdirs && -L $j || $mark_dirs && ! -L $j) && ! -d ${j#"$i/"} ]]; then
+                j+="/"
+            fi
+            COMPREPLY[k++]=${j#"$i/"}
+        done
+    done
+
+    _comp_compgen -a filedir -d
+
+    if ((${#COMPREPLY[@]} == 1)); then
+        i=${COMPREPLY[0]}
+        if [[ $i == "$cur" && $i != "*/" ]]; then
+            COMPREPLY[0]="${i}/"
+        fi
+    fi
+}
+if shopt -q cdable_vars; then
+    complete -v -F _comp_cmd_cd -o nospace cd pushd
+else
+    complete -F _comp_cmd_cd -o nospace cd pushd
+fi

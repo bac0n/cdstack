@@ -1,0 +1,112 @@
+# -*- shell-script -*-
+#
+
+## Sanitize dirname (maybe not needed anymore?).
+__dirname__(){
+    local -n __d__=$1
+    local -- __a__=${2:-.}; __a__=${__a__%%+(/)}
+    [[ $__a__ = '' ]] && __a__=/ || { \
+        __a__=${__a__//+(\/)/\/} ; [[ $__a__ = */* ]] && __d__=${__a__%/*} || __d__=. ; \
+    }
+}
+
+## Return first matching member from -A cdstack array.
+__cdstack__(){
+    local -n __d__=$1
+    local -g CDSTACK
+    [[ -v CDSTACK["$2"] ]] && { \
+        __d__=${CDSTACK[$2]}; return 0; \
+    }
+    COMPREPLY=($(compgen -W "${!CDSTACK[*]}" -- "$2"))
+    return 1
+}
+
+## Sort arguments in options, extends and directory.
+__copt__(){
+    local -n __o__=$1 __e__=$2 __d__=$3
+    for i in "${@:4}"; do
+        case "$i" in
+        _|++([1-9])|@*([[:alnum:]_:.+-]))
+            __e__+=("$i") ;; -[eLP@]) __o__+=("$i") ;;
+        --)
+            __o__+=("$i"); shift ;& *) __d__+=("${@:4}"); break ;;
+        esac
+        shift
+    done
+    if ((${#__d__[@]} > 1)); then
+        printf %s\\n "Too many arguments." >&2
+        return 1
+    fi
+    if ((${#__e__[@]} > 1 || \
+       ((${#__e__[@]} > 0 && ${#__d__[@]} > 0)))); then
+        printf %s\\n "Invalid use of extended option." >&2
+        return 1
+    fi
+}
+
+##
+#
+# Expand dots to dot-dot component (~/.bash_aliases).
+__cd__(){
+    local -a o=() e=() d=()
+    local -- x
+    __copt__ o e d "$@" || return 1
+    if [[ -v __last__ && $e = _ ]]; then
+        [[ -d $__last__ ]] && d=$__last__ || { \
+        [[ -f $__last__ ]] && __dirname__ d "$__last__" || return 1; }
+    elif [[ $e = ++([1-9]) ]]; then
+        eval printf -v d ../%.0s \{1..$e}\}
+    elif [[ $e = @*([[:alnum:]_+:.-]) ]]; then
+        __cdstack__ d "$e" || return 1
+    else
+        while [[ ${o[@]:(-1)} != -- ]] && [[ ${d:${#x}} =~ (^|/)([.]{3,})(/.*)?$ ]]; do
+            x=${d:0:(${#d} - ${#BASH_REMATCH[3]})}
+            y='..'
+            for ((z=3; z <= ${#BASH_REMATCH[2]}; z++)); do
+                y+='/..'
+            done
+            d=${d:0:(${#d} - ${#BASH_REMATCH[0]})}${BASH_REMATCH[1]}${y}${BASH_REMATCH[3]}
+        done
+    fi
+    builtin cd "${o[@]}" "$d" > /dev/null && command ls --almost-all --color=auto
+}
+
+##
+#
+#
+__cd_undo__(){
+    if [[ ${READLINE_LINE%% *} != cd ]]; then
+        return
+    fi
+    local d='' x='' y='' z=0
+    READLINE_LINE=${READLINE_LINE%/} LINE=${READLINE_LINE#* }
+    for ((a = ${#LINE} - 1; a >= 0; a--)); do
+        d+=${LINE:a:1}
+    done
+    if [[ $d =~ (^|/)([.]{2}(/[.]{2})+)(/.*)?$ ]]; then
+        x=${BASH_REMATCH[2]//\/}
+        eval printf -v y .%.0s \{1..$((${#x} / 2 + 1))\}
+        x=${d:0:(${#d} - ${#BASH_REMATCH[0]})}
+        READLINE_LINE="cd " LINE=${x}${BASH_REMATCH[1]}${y}${BASH_REMATCH[4]}
+        for ((a = ${#LINE} - 1; a >= 0; a--)); do
+            READLINE_LINE+=${LINE:a:1}
+        done
+        READLINE_POINT=$((${#READLINE_LINE} - ${#x} - ${#BASH_REMATCH[1]}))
+    else
+        i=0
+        x=$((${#READLINE_LINE} - $READLINE_POINT))
+        while [[ ${d:$x} =~ (^|/)([.]{3,})(/.*)?$ ]]; do
+            x=$((${#d} - ${#BASH_REMATCH[3]}))
+            if (( (${#BASH_REMATCH[2]} + ${#BASH_REMATCH[3]}) == ($READLINE_POINT - 3) )); then
+                continue
+            fi
+            READLINE_POINT=$((${#BASH_REMATCH[0]} - ${#BASH_REMATCH[1]} + 3))
+            break
+        done
+    fi
+}
+
+# bind cd undo to readline keyseq ESC ESC.
+bind -r '"\e\e"'
+bind -x '"\e\e":__cd_undo__'
+bind -x '"\e\e\e":__cd_undo__'
