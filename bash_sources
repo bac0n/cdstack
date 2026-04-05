@@ -13,7 +13,7 @@ __dirname__(){
 ## Return first matching member from -A cdstack array.
 __cdstack__(){
     local -n __d__=$1
-    local -g CDSTACK
+    local -Ag CDSTACK
     [[ -v CDSTACK["$2"] ]] && { \
         __d__=${CDSTACK[$2]}; return 0; \
     }
