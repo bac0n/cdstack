@@ -29,12 +29,11 @@
  * store file. Delete ~/.cdstack.bin before reloading the builtin. */
 #define MAX_ENTRIES 200
 
-/* option flags cpis:u: */
-#define CFLAG 0x01
-#define PFLAG 0x02
-#define IFLAG 0x04
-#define SFLAG 0x08
-#define UFLAG 0x10
+/* option flags pis:u: */
+#define PFLAG 0x01
+#define IFLAG 0x02
+#define SFLAG 0x04
+#define UFLAG 0x08
 
 #define UNUSED(x) x __attribute__((unused))
 #define NSEC(st) (((int64_t) (st)->st_mtim.tv_sec) * 1000000000L + ((st)->st_mtim.tv_nsec))

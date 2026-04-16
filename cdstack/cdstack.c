@@ -438,7 +438,7 @@ cdstack_load(UNUSED(char *name))
     if (!v || !p) {
         return R_FAILURE;
     }
-     /* Don't allowed unsetting */
+    /* Don't allowed unsetting */
     VSETATTR(v, att_nounset);
     v->assign_func = cdstack_assign_func;
     v->dynamic_value = cdstack_dynamic_value;
@@ -501,7 +501,7 @@ cdstack_builtin(WORD_LIST *list)
         switch (opt)
         {
             case 'p': /* cdstack_cmd_declare */
-                f |= PFLAG; f &= ~CFLAG;
+                f |= PFLAG;
                 break;
             case 'i': /* cdstack_cmd_init */
                 f |= IFLAG;
