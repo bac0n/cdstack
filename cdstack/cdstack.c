@@ -58,7 +58,7 @@ invalid_name(const char *s)
 }
 
 
-/* Empty path will try to resolve to PWD */
+/* On empty path, try resolve to PWD */
 static Ret
 final_path(char *buf, char *path, size_t len)
 {
