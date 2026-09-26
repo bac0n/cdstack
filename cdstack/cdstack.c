@@ -590,7 +590,7 @@ const char * const cdstack_doc[] = {
     "",
     "Entries can be assigned or referenced using the CDSTACK array:",
     "  $ CDSTACK[doc]=/usr/share/doc",
-    "  $ echo $\"{CDSTACK[doc]}\"",
+    "  $ echo \"${CDSTACK[doc]}\"",
     "",
     "Exit Status:",
     "  Returns success unless an error occurs.",
